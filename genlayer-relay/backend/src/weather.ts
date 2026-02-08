@@ -6,7 +6,7 @@ const WEATHER_API_KEY = process.env.WEATHER_API_KEY || "";
 
 // ----------------- PLUGIN -----------------
 export const weatherRoutes: FastifyPluginAsync = async (fastify) => {
-  // GET /weather?city=London
+  // GET /weather?city=CityName
   fastify.get("/", async (req, reply) => {
     const city = (req.query as any)?.city;
 
@@ -41,7 +41,7 @@ export const weatherRoutes: FastifyPluginAsync = async (fastify) => {
       };
     } catch (err: any) {
       reply.code(500);
-      return { status: "error", message: err.message };
+      return { status: "error", city, message: err.message };
     }
   });
 };

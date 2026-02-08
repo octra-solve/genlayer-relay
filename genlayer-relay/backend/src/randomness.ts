@@ -5,8 +5,10 @@ import crypto from "crypto";
 export const randomnessRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /random
   fastify.get("/", async () => {
-    // Generate a secure random number
-    const random = crypto.randomInt(0, 10 ** 18);
+    // Use a safe max for crypto.randomInt
+    const MAX_SAFE = Number.MAX_SAFE_INTEGER;
+    const random = crypto.randomInt(0, MAX_SAFE);
+
     const entropy = crypto
       .createHash("sha256")
       .update(random.toString() + Date.now().toString())
