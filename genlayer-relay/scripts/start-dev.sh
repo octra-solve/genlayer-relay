@@ -4,7 +4,7 @@
 ROOT_DIR="$(pwd)"
 BACKEND_DIR="$ROOT_DIR/backend"
 FRONTEND_DIR="$ROOT_DIR/frontend"
-FRONTEND_CONFIG="$FRONTEND_DIR/src/config/index.ts"
+FRONTEND_CONFIG="$FRONTEND_DIR/public/runtime-config.json"
 DEFAULT_PORT=3000
 MAX_WAIT=30
 
@@ -41,9 +41,11 @@ echo " Backend is live on http://localhost:$PORT"
 # ----- WRITE BACKEND URL TO FRONTEND CONFIG ---
 echo "✏️ Writing backend URL to frontend config..."
 cat <<EOT > "$FRONTEND_CONFIG"
-export const BACKEND_URL = "http://localhost:$PORT";
-EOT
-echo "✅ Frontend config updated"
+{
+  "BACKEND_URL": "http://localhost:$PORT"
+}
+  EOT
+echo "Frontend config updated"
 
 # ---- START FRONTEND ---
 echo "🚀 Starting frontend..."
