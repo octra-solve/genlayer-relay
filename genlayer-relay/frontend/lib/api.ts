@@ -14,14 +14,31 @@ export interface VerifyResponse {
   status?: string;
 }
 
-// ----------------- BASE URL -----------------
-const BASE_URL =
-  import.meta.env.VITE_API_URL ||
-  (typeof window !== "undefined" && window.location.hostname.endsWith(".app.github.dev")
-    ? `https://${window.location.hostname.split("-")[0]}-3000.app.github.dev`
-    : "http://localhost:3000");
+// ----------------- DYNAMIC BASE URL -----------------
+let BASE_URL = "http://localhost:3000"; // fallback (used only if fetch fails)
+let configLoaded = false;
+let configPromise: Promise<void> | null = null;
 
-console.log("API BASE_URL:", BASE_URL);
+// Lazy load runtime-config.json only once
+function loadConfig(): Promise<void> {
+  if (!configPromise) {
+    configPromise = fetch("/runtime-config.json")
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((cfg) => {
+        if (cfg.BACKEND_URL) BASE_URL = cfg.BACKEND_URL;
+        configLoaded = true;
+        console.log("✅ API BASE_URL dynamically loaded:", BASE_URL);
+      })
+      .catch((err) => {
+        console.warn("⚠️ Failed to load runtime-config.json, using fallback:", err);
+        configLoaded = true;
+      });
+  }
+  return configPromise;
+}
 
 // ----------------- HELPER: RETRY & ERROR HANDLING -----------------
 const handleRequest = async <T>(
@@ -30,6 +47,9 @@ const handleRequest = async <T>(
   retries = 2,
   delayMs = 500
 ): Promise<T> => {
+  // wait until config is loaded
+  if (!configLoaded) await loadConfig();
+
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       return await fn();
@@ -42,7 +62,7 @@ const handleRequest = async <T>(
       if (attempt < retries) await new Promise((res) => setTimeout(res, delayMs));
     }
   }
-  console.warn("All attempts failed, returning fallback value.");
+  console.warn("⚠️ All attempts failed, returning fallback value.");
   return fallback as T;
 };
 
@@ -90,3 +110,4 @@ export const api = {
     }, { error: "Failed to verify signature", status: "ok" });
   },
 };
+export { loadConfig };

@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import type { SignResponse, VerifyResponse } from "../lib/api";
-import { api } from "../lib/api";
+import { api, loadConfig } from "../lib/api";
 import { premiumApi } from "./premium/premiumApi";
 import "./App.css";
+
 function App() {
   const [prices, setPrices] = useState<any>({});
   const [weather, setWeather] = useState<any>({});
@@ -73,9 +74,14 @@ function App() {
 
   // ----------------- INITIAL -----------------
   useEffect(() => {
-    fetchPrices();
-    fetchWeather();
-    fetchRandom();
+    const init = async () => {
+      // Wait for runtime-config.json before any API call
+      await loadConfig();
+      fetchPrices();
+      fetchWeather();
+      fetchRandom();
+    };
+    init();
   }, []);
 
   return (
@@ -146,7 +152,7 @@ function App() {
         <section className="premium-section">
           <h2> Premium Wow Feature</h2>
           <button onClick={fetchPremium} disabled={loadingPremium}>
-            {loadingPremium ? "Loading Premium..." : "Activate Premium"}
+            {loadingPremium ? "Stay Tuned..." : "Activate Premium"}
           </button>
           <pre>{premiumData ? JSON.stringify(premiumData, null, 2) : "Stay tuned"}</pre>
         </section>
