@@ -48,7 +48,7 @@ async function start() {
   app.register(signRoutes, { prefix: "/sign" });
 
   // ----------------- SERVE FRONTEND -----------------
-  const frontendBuild = path.join(__dirname, "../../frontend/build");
+  const frontendBuild = path.join(__dirname, "../../frontend/dist");
   await app.register(fastifyStatic, {
     root: frontendBuild,
     prefix: "/",

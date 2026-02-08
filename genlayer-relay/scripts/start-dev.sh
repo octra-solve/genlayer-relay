@@ -13,7 +13,7 @@ echo " Starting backend..."
 cd "$BACKEND_DIR"
 
 # Read PORT from .env or fallback
-PORT=$(grep -E '^PORT=' ../.env | cut -d '=' -f2 | tr -d ' ')
+PORT=$(grep -E '^PORT=' "$BACKEND_DIR/.env" | cut -d '=' -f2 | tr -d ' ')
 PORT=${PORT:-$DEFAULT_PORT}
 
 # Start backend in background
@@ -44,7 +44,7 @@ cat <<EOT > "$FRONTEND_CONFIG"
 {
   "BACKEND_URL": "http://localhost:$PORT"
 }
-  EOT
+EOT
 echo "Frontend config updated"
 
 # ---- START FRONTEND ---
