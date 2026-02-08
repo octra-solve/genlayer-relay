@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { SignResponse, VerifyResponse } from "../lib/api";
-import { api, loadConfig } from "../lib/api";
+import { api } from "../lib/api";
 import { premiumApi } from "./premium/premiumApi";
 import "./App.css";
 
@@ -75,8 +75,6 @@ function App() {
   // ----------------- INITIAL -----------------
   useEffect(() => {
     const init = async () => {
-      // Wait for runtime-config.json before any API call
-      await loadConfig();
       fetchPrices();
       fetchWeather();
       fetchRandom();

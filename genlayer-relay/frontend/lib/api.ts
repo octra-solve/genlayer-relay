@@ -14,100 +14,102 @@ export interface VerifyResponse {
   status?: string;
 }
 
-// ----------------- DYNAMIC BASE URL -----------------
-let BASE_URL = "http://localhost:3000"; // fallback (used only if fetch fails)
-let configLoaded = false;
-let configPromise: Promise<void> | null = null;
+// ----------------- BASE URL -----------------
+// Empty string = SAME ORIGIN (this is the key)
+const BASE_URL = "";
 
-// Lazy load runtime-config.json only once
-function loadConfig(): Promise<void> {
-  if (!configPromise) {
-    configPromise = fetch("/runtime-config.json")
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((cfg) => {
-        if (cfg.BACKEND_URL) BASE_URL = cfg.BACKEND_URL;
-        configLoaded = true;
-        console.log("✅ API BASE_URL dynamically loaded:", BASE_URL);
-      })
-      .catch((err) => {
-        console.warn("⚠️ Failed to load runtime-config.json, using fallback:", err);
-        configLoaded = true;
-      });
-  }
-  return configPromise;
-}
-
-// ----------------- HELPER: RETRY & ERROR HANDLING -----------------
+// ----------------- HELPER -----------------
 const handleRequest = async <T>(
   fn: () => Promise<T>,
-  fallback?: T,
-  retries = 2,
-  delayMs = 500
+  fallback?: T
 ): Promise<T> => {
-  // wait until config is loaded
-  if (!configLoaded) await loadConfig();
-
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      return await fn();
-    } catch (err: unknown) {
-      if (axios.isAxiosError(err)) {
-        console.error(`Axios Error (attempt ${attempt + 1}):`, err.message, err.response?.data);
-      } else {
-        console.error(`Unexpected Error (attempt ${attempt + 1}):`, err);
-      }
-      if (attempt < retries) await new Promise((res) => setTimeout(res, delayMs));
-    }
+  try {
+    const result = await fn();
+    console.log("✅ API success:", result);
+    return result;
+  } catch (err) {
+    console.error("❌ API error:", err);
+    return fallback as T;
   }
-  console.warn("⚠️ All attempts failed, returning fallback value.");
-  return fallback as T;
 };
 
 // ----------------- API OBJECT -----------------
 export const api = {
   // ----------------- PRICES -----------------
-  getPrices: async (vs: string = "usd") => {
-    return handleRequest(async () => {
-      const res = await axios.get(`${BASE_URL}/prices`, { params: { vs }, timeout: 7000 });
-      return res.data;
-    }, { error: "Failed to fetch prices" });
-  },
+  getPrices: async (vs: string = "usd") =>
+    handleRequest(
+      async () => {
+        console.log("➡️ GET /prices");
+        const res = await axios.get(`${BASE_URL}/prices`, {
+          params: { vs },
+          timeout: 7000,
+        });
+        return res.data;
+      },
+      { error: "Failed to fetch prices" }
+    ),
 
   // ----------------- WEATHER -----------------
-  getWeather: async (city: string) => {
-    return handleRequest(async () => {
-      const res = await axios.get(`${BASE_URL}/weather`, { params: { city }, timeout: 7000 });
-      return res.data;
-    }, { error: "Failed to fetch weather" });
-  },
+  getWeather: async (city: string) =>
+    handleRequest(
+      async () => {
+        console.log("➡️ GET /weather");
+        const res = await axios.get(`${BASE_URL}/weather`, {
+          params: { city },
+          timeout: 7000,
+        });
+        return res.data;
+      },
+      { error: "Failed to fetch weather" }
+    ),
 
   // ----------------- RANDOMNESS -----------------
-  getRandom: async () => {
-    return handleRequest(async () => {
-      const res = await axios.get(`${BASE_URL}/random`, { timeout: 7000 });
-      return res.data;
-    }, { error: "Failed to fetch random value" });
-  },
+  getRandom: async () =>
+    handleRequest(
+      async () => {
+        console.log("➡️ GET /random");
+        const res = await axios.get(`${BASE_URL}/random`, {
+          timeout: 7000,
+        });
+        return res.data;
+      },
+      { error: "Failed to fetch random value" }
+    ),
 
   // ----------------- SIGN -----------------
-  signMessage: async (message: string, secret: string): Promise<SignResponse> => {
-    if (!message || !secret) return { error: "Message and secret required", status: "ok" };
-    return handleRequest(async () => {
-      const res = await axios.post(`${BASE_URL}/sign`, { message, secret }, { timeout: 7000 });
-      return res.data as SignResponse;
-    }, { error: "Failed to sign message", status: "ok" });
-  },
+  signMessage: async (
+    message: string,
+    secret: string
+  ): Promise<SignResponse> =>
+    handleRequest(
+      async () => {
+        console.log("➡️ POST /sign");
+        const res = await axios.post(
+          `${BASE_URL}/sign`,
+          { message, secret },
+          { timeout: 7000 }
+        );
+        return res.data;
+      },
+      { error: "Failed to sign message", status: "ok" }
+    ),
 
   // ----------------- VERIFY -----------------
-  verifySignature: async (message: string, signature: string, secret: string): Promise<VerifyResponse> => {
-    if (!message || !signature || !secret) return { error: "All fields required", status: "ok" };
-    return handleRequest(async () => {
-      const res = await axios.post(`${BASE_URL}/verify`, { message, signature, secret }, { timeout: 7000 });
-      return res.data as VerifyResponse;
-    }, { error: "Failed to verify signature", status: "ok" });
-  },
+  verifySignature: async (
+    message: string,
+    signature: string,
+    secret: string
+  ): Promise<VerifyResponse> =>
+    handleRequest(
+      async () => {
+        console.log("➡️ POST /verify");
+        const res = await axios.post(
+          `${BASE_URL}/verify`,
+          { message, signature, secret },
+          { timeout: 7000 }
+        );
+        return res.data;
+      },
+      { error: "Failed to verify signature", status: "ok" }
+    ),
 };
-export { loadConfig };
