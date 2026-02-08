@@ -6,8 +6,8 @@ export const randomnessRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /random
   fastify.get("/", async () => {
     // Use a safe max for crypto.randomInt
-    const MAX_SAFE = Number.MAX_SAFE_INTEGER;
-    const random = crypto.randomInt(0, MAX_SAFE);
+   const MAX_SAFE_RANDOM = 2n ** 48n - 1n; // 281474976710655
+   const random = Number(crypto.randomInt(0, Number(MAX_SAFE_RANDOM)));
 
     const entropy = crypto
       .createHash("sha256")
