@@ -15,9 +15,9 @@ function App() {
   const [verifyResult, setVerifyResult] = useState<string>(""); 
   const [premiumData, setPremiumData] = useState<string>(""); 
   const [priceOptions, setPriceOptions] = useState<PriceOptions | null>(null);
-  const [crypto, setCrypto] = useState("CRYPTO"); 
-  const [fx, setFx] = useState("STABLE & FX"); 
-  const [stocks, setStocks] = useState("STOCKS"); 
+  const [crypto, setCrypto] = useState(""); 
+  const [fx, setFx] = useState(""); 
+  const [stocks, setStocks] = useState(""); 
 
   const [loadingPrices, setLoadingPrices] = useState(false);
   const [loadingWeather, setLoadingWeather] = useState(false);
@@ -34,19 +34,63 @@ function App() {
     setPriceOptions(options);
   };
 
+  /* -------------------------------------------------
+   *  PRICE FETCHING LOGIC
+   * ------------------------------------------------- */
   const fetchPrice = async () => {
     setLoadingPrices(true);
-    const data = await api.getPrice(crypto, fx);
-    if(data?.status==="ok" && data.data?.[crypto]?.[fx]) {
-      setPrice(`${crypto.toUpperCase()}/${fx.toUpperCase()}: ${data.data[crypto][fx]}`);
-    } else { setPrice("Price not available"); }
+    setPrice("");
+
+    try {
+      let base = crypto || stocks || fx;
+      let quote = fx || "USD";
+
+      if (stocks) {
+        quote = fx || "USD";
+      } else if (crypto) {
+        quote = fx || "USD";
+      } else if (fx) {
+        quote = fx;
+      }
+
+      if (!base || !quote) {
+        setPrice("Please select a valid asset and quote");
+        setLoadingPrices(false);
+        return;
+      }
+
+      const res = await api.getPrice(base.toLowerCase(), quote.toLowerCase());
+
+      if (res?.status === "ok") {
+        let displayPrice = 0;
+
+        if (crypto && !stocks && res.data?.[crypto.toLowerCase()]?.[quote.toLowerCase()]) {
+          displayPrice = res.data?.[crypto.toLowerCase()]?.[quote.toLowerCase()] ?? 0;
+        } else if (stocks && res.data?.[stocks]?.[quote.toLowerCase()]) {
+          displayPrice = res.data?.[stocks]?.[quote.toLowerCase()] ?? 0;
+        } else if (fx && res.data?.[fx.toLowerCase()]?.[quote.toLowerCase()]) {
+          displayPrice = res.data?.[fx.toLowerCase()]?.[quote.toLowerCase()] ?? 0
+        }
+
+        setPrice(`${base.toUpperCase()}/${quote.toUpperCase()}: ${displayPrice} 💸`);
+      } else {
+        setPrice("Price not available ❌");
+      }
+    } catch (err) {
+      console.error(err);
+      setPrice("Failed to fetch price ⚠️");
+    }
+
     setLoadingPrices(false);
   };
 
+  /* -------------------------------------------------
+   * WEATHER
+   * ------------------------------------------------- */
   const fetchWeather = async () => {
     setLoadingWeather(true);
     const data = await api.getWeather(city);
-    if(data?.status==="ok" && data.data?.main) {
+    if (data?.status === "ok" && data.data?.main) {
       const t = data.data.main.temp;
       const f = data.data.main.feels_like;
       const desc = data.data.weather?.[0]?.description || "";
@@ -55,13 +99,19 @@ function App() {
     setLoadingWeather(false);
   };
 
+  /* -------------------------------------------------
+   * RANDOM
+   * ------------------------------------------------- */
   const fetchRandom = async () => {
     setLoadingRandom(true);
     const data = await api.getRandom();
-    setRandom(data?.status==="ok" ? `${data.random}` : "Failed to fetch random");
+    setRandom(data?.status === "ok" ? `${data.random}` : "Failed to fetch random");
     setLoadingRandom(false);
   };
 
+  /* -------------------------------------------------
+   * SIGN & VERIFY
+   * ------------------------------------------------- */
   const handleSign = async () => {
     setLoadingSign(true);
     const res: SignResponse = await api.signMessage(message, secret);
@@ -76,47 +126,62 @@ function App() {
     setLoadingVerify(false);
   };
 
+  /* -------------------------------------------------
+   * PREMIUM DATA
+   * ------------------------------------------------- */
   const fetchPremium = async () => {
     setLoadingPremium(true);
-    try { const data = await premiumApi.getPremiumData(); setPremiumData(JSON.stringify(data)); }
-    catch { setPremiumData("Failed to fetch premium data"); }
+    try { 
+      const data = await premiumApi.getPremiumData(); 
+      setPremiumData(JSON.stringify(data, null, 2)); 
+    } catch { 
+      setPremiumData("Failed to fetch premium data"); 
+    }
     setLoadingPremium(false);
+  };
+
+  /* -------------------------------------------------
+   * COPY TO CLIPBOARD
+   * ------------------------------------------------- */
+  const copyPrice = () => {
+    if (price) navigator.clipboard.writeText(price);
   };
 
   return (
     <div className="app-wrapper">
       <div className="page-container">
-        <h1>GenLayer Relay Dashboard</h1>
+        <h1>GenLayer Relay Dashboard 🚀</h1>
 
         {/* Prices */}
-        <section>
+        <section className="price-section">
           <h2>💰 Prices</h2>
-          <div className="controlled-row">
+          <div className="controlled-row centered-row premium-dropdowns">
             <SearchableDropdown 
               options={priceOptions?.crypto || []} 
               value={crypto} 
               onChange={val => { setCrypto(val); setStocks(""); }}
               placeholder="Crypto"
-              disabled={!!stocks} // NEW: disable if stock selected
+              disabled={!!stocks}
             />
             <SearchableDropdown 
               options={priceOptions?.fx || []} 
               value={fx} 
               onChange={setFx} 
-              placeholder="FX" 
-              disabled={!!stocks} // NEW: disable if stock selected
+              placeholder="Stable / FX" 
+              disabled={!!stocks}
             />
             <SearchableDropdown 
               options={priceOptions?.stocks || []} 
               value={stocks} 
-              onChange={val => { setStocks(val); setCrypto(""); setFx("usd"); }}
+              onChange={val => { setStocks(val); setCrypto(""); setFx("USD"); }}
               placeholder="Stocks"
             />
             <button onClick={fetchPrice} disabled={loadingPrices}>
-              {loadingPrices ? "Loading..." : "Search Price"}
+              {loadingPrices ? "Loading..." : "Get Price"}
             </button>
+            {price && <button onClick={copyPrice} className="copy-btn">📋 Copy</button>}
           </div>
-          <div className="result-display">{price}</div>
+          <div className="result-display price-result">{price}</div>
         </section>
 
         {/* Weather */}
@@ -125,7 +190,7 @@ function App() {
           <div className="controlled-row">
             <input type="text" value={city} onChange={e=>setCity(e.target.value)} placeholder="City"/>
             <button onClick={fetchWeather} disabled={loadingWeather}>
-              {loadingWeather?"Loading...":"Get Weather"}
+              {loadingWeather ? "Loading..." : "Get Weather"}
             </button>
           </div>
           <div className="result-display">{weather}</div>
@@ -135,7 +200,7 @@ function App() {
         <section>
           <h2>🎲 Random</h2>
           <button onClick={fetchRandom} disabled={loadingRandom}>
-            {loadingRandom?"Loading...":"Get Random"}
+            {loadingRandom ? "Loading..." : "Get Random"}
           </button>
           <div className="result-display">{random}</div>
         </section>
@@ -147,12 +212,12 @@ function App() {
             <input type="text" value={message} onChange={e=>setMessage(e.target.value)} placeholder="Message"/>
             <input type="text" value={secret} onChange={e=>setSecret(e.target.value)} placeholder="Secret"/>
             <button onClick={handleSign} disabled={loadingSign}>
-              {loadingSign?"Signing...":"Sign"}
+              {loadingSign ? "Signing..." : "Sign"}
             </button>
           </div>
           <div className="result-display">{signature}</div>
           <button onClick={handleVerify} disabled={loadingVerify}>
-            {loadingVerify?"Verifying...":"Verify"}
+            {loadingVerify ? "Verifying..." : "Verify"}
           </button>
           <div className="result-display">{verifyResult}</div>
         </section>
@@ -161,11 +226,10 @@ function App() {
         <section className="premium-section">
           <h2>💎 Premium</h2>
           <button onClick={fetchPremium} disabled={loadingPremium}>
-            {loadingPremium?"Loading...":"Activate Premium"}
+            {loadingPremium ? "Loading..." : "Activate Premium"}
           </button>
           <div className="result-display">{premiumData}</div>
         </section>
-
       </div>
     </div>
   );
