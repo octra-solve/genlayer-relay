@@ -13,12 +13,23 @@ const priceCache = new Map<string, any>();
 const CACHE_TTL = 60; // seconds
 
 // ----------------- HELPER: SYMBOL → ID -----------------
-function getCryptoIdFromSymbol(symbol: string) {
+export function getCryptoIdFromSymbol(symbol: string) {
   const lowerSymbol = symbol.toLowerCase();
-    return Object.keys(cryptoCache).find(
-        (id) => cryptoCache[id].toLowerCase() === lowerSymbol
-          );
-          }
+  const id = Object.keys(cryptoCache).find(
+  (id) => cryptoCache[id].toLowerCase() === lowerSymbol
+  );
+  if (id) return id;
+
+  // fallback for top coins if cache isn't loaded yet
+  const topCoins: Record<string, string> = {
+   btc: "bitcoin",
+   eth: "ethereum",
+   usdt: "tether",
+   bnb: "binancecoin",
+   ada: "cardano",
+        };
+        return topCoins[lowerSymbol] || null;
+        }
 // ----------------- API URLS -----------------
 const COINGECKO_LIST_URL = "https://api.coingecko.com/api/v3/coins/list";
 const COINGECKO_PRICE_URL = "https://api.coingecko.com/api/v3/simple/price";
@@ -197,9 +208,10 @@ export const pricesRoutes: FastifyPluginAsync = async (fastify) => {
 
     // ---- CRYPTO ----
     const cryptoId = getCryptoIdFromSymbol(base);
+    console.log(" /prices request:", base, quote, "cryptoId:", cryptoId);  // <-- ADD THIS
     if (cryptoId) {
-      payload = await getCrypto(cryptoId, quote.toLowerCase());
-      }
+        payload = await getCrypto(cryptoId, quote.toLowerCase());
+        }
 
     // ---- FX ----
     else if (fxCache.has(base.toUpperCase())) {
@@ -289,3 +301,4 @@ priceCache.set(key, response);
 return response;
 });
 };
+export { loadCryptoCache, loadStockCache };

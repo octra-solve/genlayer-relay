@@ -14,9 +14,10 @@ if (result.error) {
 
 // ----------------- VALIDATE ENV -----------------
 const envSchema = z.object({
-  WEATHER_API_KEY: z.string().min(1, "WEATHER_API_KEY is required"),
-  PORT: z.string().optional(),
-});
+ WEATHER_API_KEY: z.string().min(1, "WEATHER_API_KEY is required"),
+ FINNHUB_API_KEY: z.string().min(1, "FINNHUB_API_KEY is required"),
+ PORT: z.string().optional(),
+                          });
 
 const envParse = envSchema.safeParse(process.env);
 if (!envParse.success) {
@@ -33,6 +34,18 @@ import { randomnessRoutes } from "./randomness";
 import { verifyRoutes } from "./verify";
 import { signRoutes } from "./sign";
 
+import { loadCryptoCache, loadStockCache } from "./prices";
+
+const apiKey = process.env.FINNHUB_API_KEY || "";
+(async () => { 
+try {
+  await loadCryptoCache();
+    await loadStockCache(apiKey);
+      console.log("✅ Preloaded crypto & stock caches");
+      } catch (err) {
+        console.error("❌ Failed to preload caches:", err);
+        }
+})();
 // ----------------- START SERVER -----------------
 async function start() {
   const app = Fastify({ logger: true });
