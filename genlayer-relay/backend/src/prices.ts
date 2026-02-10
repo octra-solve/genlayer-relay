@@ -2,11 +2,20 @@ import { FastifyPluginAsync } from "fastify";
 import axios from "axios";
 
 // ----------------- ASSET CACHES -----------------
-let cryptoCache: Record<string, string> = {}; // { id: symbol }
+let cryptoCache: Record<string, CoinGeckoCoin> = {}; 
 let stockCache: Set<string> = new Set();
 const fxCache: Set<string> = new Set([
   "USD","EUR","GBP","JPY","AUD","CAD","CHF","CNY","NZD","SEK"
 ]);
+
+const STABLECOINS: Record<string, string> = {
+    USDT: "USD",
+    USDC: "USD",
+    BUSD: "USD",
+    DAI: "USD"
+              };
+
+const normalizeStablecoin = (symbol: string) => STABLECOINS[symbol.toUpperCase()] || symbol;
 
 // short-lived price cache (prevents UI jitter)
 const priceCache = new Map<string, any>();
@@ -15,18 +24,10 @@ const CACHE_TTL = 60; // seconds
 let coinListCache: { timestamp: number; data: CoinGeckoCoin[] } | null = null;
 const COIN_LIST_TTL = 60; // seconds
 // ----------------- HELPER: SYMBOL → ID -----------------
-// Fully dynamic: fetch CoinGecko ID by symbol on demand
 export async function getCryptoIdFromSymbol(symbol: string): Promise<string | null> {
-  try {
-  const res = await axios.get<CoinGeckoCoin[]>(COINGECKO_LIST_URL, { timeout: 10000 });
-  const lowerSymbol = symbol.toLowerCase();
-  const coin = res.data.find(c => c.symbol.toLowerCase() === lowerSymbol);
+    const coin = cryptoCache[symbol.toLowerCase()];
       return coin ? coin.id : null;
-      } catch (e) {
-  console.error("Failed to fetch CoinGecko list:", e);
-      return null;
       }
-                  }
 
  
 // ----------------- API URLS -----------------
@@ -70,9 +71,9 @@ async function loadCryptoCache(): Promise<void> {
   // Use cache if it's fresh
   if (coinListCache && nowTs - coinListCache.timestamp < COIN_LIST_TTL) {
   cryptoCache = {};
-  coinListCache.data.forEach((coin: CoinGeckoCoin) => {
-  cryptoCache[coin.id.toLowerCase()] = coin.symbol.toLowerCase();
-  });
+  res.data.forEach((coin: CoinGeckoCoin) => {
+    cryptoCache[coin.symbol.toLowerCase()] = coin;
+    });
   return;
   }
 
@@ -88,8 +89,8 @@ async function loadCryptoCache(): Promise<void> {
   // update cryptoCache
   cryptoCache = {};
   res.data.forEach((coin: CoinGeckoCoin) => {
-  cryptoCache[coin.id.toLowerCase()] = coin.symbol.toLowerCase();
-  });
+    cryptoCache[coin.symbol.toLowerCase()] = coin;
+    });
 
   console.log("Crypto cache loaded:", Object.keys(cryptoCache).length, "coins");
   } catch (e) {
@@ -168,14 +169,20 @@ async function getStock(symbol: string, apiKey: string) {
 
 async function getFX(base: string, quote: string) {
   const res = await axios.get<FXResponse>(FX_URL, {
-    params: { base, symbols: quote },
+    params: {
+    base: base.toUpperCase(),
+    symbols: quote.toUpperCase()
+            },
     timeout: 10000
   });
 
-  const price = res.data?.rates?.[quote] ?? null;
+  const rate = res.data?.rates?.[quote.toUpperCase()];
+    if (rate == null) {
+        throw new Error(`FX rate not found for ${base}/${quote}`);
+          }
 
   return {
-    price,
+    price: rate,
     change: {
       "5m": null,
       "30m": null,
@@ -218,8 +225,10 @@ export const pricesRoutes: FastifyPluginAsync = async (fastify) => {
     const base = query.base;
     const quote = query.quote || "USD";
 
+    const baseNorm = normalizeStablecoin(base);
+    const quoteNorm = normalizeStablecoin(quote);
+
     const key = cacheKey(base, quote);
-    priceCache.delete(key);
     const cached = priceCache.get(key);
 
     if (cached && now() - cached.timestamp < CACHE_TTL) {
@@ -231,40 +240,31 @@ export const pricesRoutes: FastifyPluginAsync = async (fastify) => {
 
     let payload;
 
-    // ---- CRYPTO ----
-    const cryptoId = await getCryptoIdFromSymbol(base);
-    console.log("/prices request:", base, quote, "resolved cryptoId:", cryptoId);
+ 
+// ---- STOCK  ----
+await loadStockCache(apiKey);
+if (stockCache.has(base.toUpperCase())) {
+if (!apiKey) {
+reply.code(400);
+return { status: "error", message: "Stock pricing unavailable (API key missing)" };
+}
+payload = await getStock(base.toUpperCase(), apiKey);
+}
 
-    if (cryptoId) {
-        payload = await getCrypto(cryptoId, quote.toLowerCase());
-        }
+// ---- FX----
+else if (fxCache.has(base.toUpperCase())) {
+payload = await getFX(base.toUpperCase(), quote.toUpperCase());
+}
 
-    // ---- FX ----
-    else if (fxCache.has(base.toUpperCase())) {
-      payload = await getFX(base.toUpperCase(), quote.toUpperCase());
-    }
-
-    // ---- STOCKS ----
-    else {
-      await loadStockCache(apiKey);
-      if (!stockCache.has(base.toUpperCase())) {
-        reply.code(400);
-        return {
-          status: "error",
-          message: `Unsupported base asset: ${base}`
-        };
-      }
-
-      if (!apiKey) {
-        reply.code(400);
-        return {
-          status: "error",
-          message: "Stock pricing unavailable (API key missing)"
-        };
-      }
-
-      payload = await getStock(base.toUpperCase(), apiKey);
-    }
+// ---- CRYPTO ----
+else {
+const cryptoId = await getCryptoIdFromSymbol(base);
+if (!cryptoId) {
+reply.code(400);
+return { status: "error", message: `Unsupported base asset: ${base}` };
+}
+payload = await getCrypto(cryptoId, quote.toLowerCase());
+}
 
     const response = {
       status: "ok",
@@ -280,8 +280,9 @@ export const pricesRoutes: FastifyPluginAsync = async (fastify) => {
 // GET /prices/:base/:quote
 fastify.get("/:base/:quote", async (req, reply) => {
 const { base, quote } = req.params as { base: string; quote: string };
+const baseNorm = normalizeStablecoin(base);
+const quoteNorm = normalizeStablecoin(quote);
 const key = cacheKey(base, quote);
-priceCache.delete(key);
 const cached = priceCache.get(key);
 
 if (cached && now() - cached.timestamp < CACHE_TTL) {
@@ -293,29 +294,30 @@ const apiKey = process.env.FINNHUB_API_KEY || "";
 
 let payload;
 
-// ---- CRYPTO ----
-const cryptoId = await getCryptoIdFromSymbol(base);
-console.log(" /prices request:", base, quote, "resolved cryptoId:", cryptoId);
 
-if (cryptoId) {
-payload = await getCrypto(cryptoId, quote.toLowerCase());
-}
-// ---- FX ----
-else if (fxCache.has(base.toUpperCase())) {
-payload = await getFX(base.toUpperCase(), quote.toUpperCase());
-}
-// ---- STOCKS ----
-else {
+// ---- STOCK  ----
 await loadStockCache(apiKey);
-if (!stockCache.has(base.toUpperCase())) {
-reply.code(400);
-return { status: "error", message: `Unsupported base asset: ${base}` };
-}
+if (stockCache.has(base.toUpperCase())) {
 if (!apiKey) {
 reply.code(400);
 return { status: "error", message: "Stock pricing unavailable (API key missing)" };
 }
 payload = await getStock(base.toUpperCase(), apiKey);
+}
+
+// ---- FX----
+else if (fxCache.has(base.toUpperCase())) {
+payload = await getFX(base.toUpperCase(), quote.toUpperCase());
+}
+
+// ---- CRYPTO ----
+else {
+const cryptoId = await getCryptoIdFromSymbol(base);
+if (!cryptoId) {
+reply.code(400);
+return { status: "error", message: `Unsupported base asset: ${base}` };
+}
+payload = await getCrypto(cryptoId, quote.toLowerCase());
 }
 
 const response = {
