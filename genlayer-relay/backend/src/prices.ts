@@ -55,28 +55,33 @@ const cacheKey = (base: string, quote: string) =>
 
 // ----------------- LOAD CRYPTO LIST -----------------
 async function loadCryptoCache() {
-  if (Object.keys(cryptoCache).length) return;
-
-  const res = await axios.get<CoinGeckoCoin[]>(COINGECKO_LIST_URL, { timeout: 10000 });
-  res.data.forEach((coin) => {
+    if (Object.keys(cryptoCache).length) return;
+    try {
+    const res = await axios.get<CoinGeckoCoin[]>(COINGECKO_LIST_URL, { timeout: 10000 });
+    res.data.forEach((coin) => {
     cryptoCache[coin.id.toLowerCase()] = coin.symbol.toLowerCase();
-  });
-}
+    });
+    console.log("Crypto cache loaded:", Object.keys(cryptoCache).length, "coins");
+    } catch (e) {
+    console.error(" Failed to load crypto cache:", e);
+                }
+                }
 
 // ----------------- LOAD STOCK LIST -----------------
 async function loadStockCache(apiKey?: string) {
   if (!apiKey || stockCache.size) return;
-
-  const res = await axios.get<any[]>(
-    "https://finnhub.io/api/v1/stock/symbol",
-    {
-      params: { exchange: "US", token: apiKey },
-      timeout: 10000
-    }
-  );
-
+  try {
+  const res = await axios.get<any[]>("https://finnhub.io/api/v1/stock/symbol", {
+  params: { exchange: "US", token: apiKey },
+  timeout: 10000
+  });
   res.data.forEach((s) => stockCache.add(s.symbol.toUpperCase()));
-}
+  console.log(" Stock cache loaded:",
+  stockCache.size, "symbols");
+  } catch (e) {
+  console.error(" Failed to load stock cache:", e);
+  }
+  }
 
 // ----------------- PRICE RESOLVERS -----------------
 async function getCrypto(base: string, quote: string) {
