@@ -234,4 +234,53 @@ export const pricesRoutes: FastifyPluginAsync = async (fastify) => {
     priceCache.set(key, response);
     return response;
   });
+// GET /prices/:base/:quote
+fastify.get("/:base/:quote", async (req, reply) => {
+const { base, quote } = req.params as { base: string; quote: string };
+const key = cacheKey(base, quote);
+const cached = priceCache.get(key);
+
+if (cached && now() - cached.timestamp < CACHE_TTL) {
+return cached;
+}
+
+await loadCryptoCache();
+const apiKey = process.env.FINNHUB_API_KEY || "";
+
+let payload;
+
+// ---- CRYPTO ----
+const cryptoId = getCryptoIdFromSymbol(base);
+if (cryptoId) {
+payload = await getCrypto(cryptoId, quote.toLowerCase());
+}
+// ---- FX ----
+else if (fxCache.has(base.toUpperCase())) {
+payload = await getFX(base.toUpperCase(), quote.toUpperCase());
+}
+// ---- STOCKS ----
+else {
+await loadStockCache(apiKey);
+if (!stockCache.has(base.toUpperCase())) {
+reply.code(400);
+return { status: "error", message: `Unsupported base asset: ${base}` };
+}
+if (!apiKey) {
+reply.code(400);
+return { status: "error", message: "Stock pricing unavailable (API key missing)" };
+}
+payload = await getStock(base.toUpperCase(), apiKey);
+}
+
+const response = {
+status: "ok",
+base: base.toUpperCase(),
+quote: quote.toUpperCase(),
+data: payload,
+timestamp: now()
+};
+
+priceCache.set(key, response);
+return response;
+});
 };
