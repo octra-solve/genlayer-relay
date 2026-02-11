@@ -34,9 +34,7 @@ import { randomnessRoutes } from "./randomness";
 import { verifyRoutes } from "./verify";
 import { signRoutes } from "./sign";
 
-import { loadCryptoCache, loadStockCache } from "./prices";
-
-const apiKey = process.env.FINNHUB_API_KEY || "";
+  /* const apiKey = process.env.FINNHUB_API_KEY || "";
     (async () => { 
         try {
 // crypto cache now loads lazily on first /prices call
@@ -45,7 +43,7 @@ const apiKey = process.env.FINNHUB_API_KEY || "";
             } catch (err) {
     console.error("Failed to preload caches:", err);
                           }
-              })();
+              })(); */
 
 // ----------------- START SERVER -----------------
 async function start() {

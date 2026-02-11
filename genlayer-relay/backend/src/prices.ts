@@ -3,7 +3,7 @@ import axios from "axios";
 
 // ----------------- ASSET CACHES -----------------
 let cryptoCache: Record<string, CoinGeckoCoin> = {}; 
-let stockCache: Set<string> = new Set();
+/* let stockCache: Set<string> = new Set(); */
 const fxCache: Set<string> = new Set([
   "USD","EUR","GBP","JPY","AUD","CAD","CHF","CNY","NZD","SEK"
 ]);
@@ -102,17 +102,15 @@ async function loadCryptoCache(): Promise<void> {
 
 // ----------------- LOAD STOCK LIST -----------------
 async function loadStockCache(apiKey?: string) {
-  if (!apiKey || stockCache.size) return;
+  if (!apiKey) return;
   try {
   const res = await axios.get<any[]>("https://finnhub.io/api/v1/stock/symbol", {
   params: { exchange: "US", token: apiKey },
   timeout: 10000
   });
-  res.data.forEach((s) => stockCache.add(s.symbol.toUpperCase()));
-  console.log(" Stock cache loaded:",
-  stockCache.size, "symbols");
+  console.log("Stock symbols fetched dynamically:", res.data.length);
   } catch (e) {
-  console.error(" Failed to load stock cache:", e);
+  console.error("Failed to fetch stock symbols:", e);
   }
   }
 
@@ -198,22 +196,34 @@ async function getFX(base: string, quote: string) {
 // ----------------- PLUGIN -----------------
 export const pricesRoutes: FastifyPluginAsync = async (fastify) => {
 
-  // GET /prices/options
-  fastify.get("/options", async () => {
-    await loadCryptoCache();
+// GET /prices/options
+fastify.get("/options", async () => {
+// Load crypto dynamically
+await loadCryptoCache();
 
-    const apiKey = process.env.FINNHUB_API_KEY;
-    if (apiKey) {
-      await loadStockCache(apiKey);
-    }
+// Get stock symbols dynamically from Finnhub API
+const apiKey = process.env.FINNHUB_API_KEY;
+let stocks: string[] = [];
 
-    return {
-      status: "ok",
-      crypto: Object.keys(cryptoCache),
-      fx: Array.from(fxCache),
-      stocks: Array.from(stockCache)
-    };
-  });
+if (apiKey) {
+try {
+const res = await axios.get<any[]>("https://finnhub.io/api/v1/stock/symbol", {
+params: { exchange: "US", token: apiKey },
+timeout: 10000
+});
+stocks = res.data.map((s) => s.symbol.toUpperCase());
+} catch (e) {
+console.error("Failed to fetch stock symbols dynamically:", e);
+}
+}
+
+return {
+status: "ok",
+crypto: Object.keys(cryptoCache),
+fx: Array.from(fxCache),
+stocks // dynamic list, no cache
+};
+});
 
   // GET /prices?base=X&quote=Y
   fastify.get("/", async (req, reply) => {
@@ -249,16 +259,14 @@ if (fxCache.has(baseNorm.toUpperCase()) || STABLECOINS[baseNorm.toUpperCase()]) 
   const cryptoId = await getCryptoIdFromSymbol(baseNorm);
   payload = await getCrypto(cryptoId!, quoteNorm.toLowerCase());
   } else {
-  // Stock fallback
-  await loadStockCache(apiKey);
-  if (!stockCache.has(baseNorm.toUpperCase())) {
-  reply.code(400);
-  return { status: "error", message: `Unsupported base asset: ${baseNorm}` };
-  }
+  // Get API key dynamically
+  const apiKey = process.env.FINNHUB_API_KEY || "";
   if (!apiKey) {
   reply.code(400);
   return { status: "error", message: "Stock pricing unavailable (API key missing)" };
   }
+
+  // Fetch real-time stock price
   payload = await getStock(baseNorm.toUpperCase(), apiKey);
   }
 
@@ -296,15 +304,13 @@ if (fxCache.has(baseNorm.toUpperCase()) || STABLECOINS[baseNorm.toUpperCase()]) 
   const cryptoId = await getCryptoIdFromSymbol(baseNorm);
   payload = await getCrypto(cryptoId!, quoteNorm.toLowerCase());
   } else {
-  await loadStockCache(apiKey);
-  if (!stockCache.has(baseNorm.toUpperCase())) {
-  reply.code(400);
-  return { status: "error", message: `Unsupported base asset: ${baseNorm}` };
-  }
+  const apiKey = process.env.FINNHUB_API_KEY || "";
   if (!apiKey) {
   reply.code(400);
   return { status: "error", message: "Stock pricing unavailable (API key missing)" };
   }
+
+  // Dynamically fetch stock price from Finnhub
   payload = await getStock(baseNorm.toUpperCase(), apiKey);
   }
 
@@ -320,4 +326,3 @@ priceCache.set(key, response);
 return response;
 });
 };
-export { loadCryptoCache, loadStockCache };
