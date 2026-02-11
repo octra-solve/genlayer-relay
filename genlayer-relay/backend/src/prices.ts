@@ -250,25 +250,39 @@ stocks // dynamic list, no cache
     await loadCryptoCache();
     const apiKey = process.env.FINNHUB_API_KEY || "";
 
-    let payload;
+let payload;
 
 if (fxCache.has(baseNorm.toUpperCase()) || STABLECOINS[baseNorm.toUpperCase()]) {
-  payload = await getFX(baseNorm.toUpperCase(), quoteNorm.toUpperCase());
-  } else if (cryptoCache[baseNorm.toLowerCase()]) {
-  // Crypto branch
-  const cryptoId = await getCryptoIdFromSymbol(baseNorm);
-  payload = await getCrypto(cryptoId!, quoteNorm.toLowerCase());
-  } else {
-  // Get API key dynamically
-  const apiKey = process.env.FINNHUB_API_KEY || "";
-  if (!apiKey) {
-  reply.code(400);
-  return { status: "error", message: "Stock pricing unavailable (API key missing)" };
-  }
+payload = await getFX(baseNorm.toUpperCase(), quoteNorm.toUpperCase());
+priceCache.set(key, {
+status: "ok",
+base: baseNorm.toUpperCase(),
+quote: quoteNorm.toUpperCase(),
+data: payload,
+timestamp: now()
+}); // cache FX only
+} else if (cryptoCache[baseNorm.toLowerCase()]) {
+const cryptoId = await getCryptoIdFromSymbol(baseNorm);
+payload = await getCrypto(cryptoId!, quoteNorm.toLowerCase());
+priceCache.set(key, {
+status: "ok",
+base: baseNorm.toUpperCase(),
+quote: quoteNorm.toUpperCase(),
+data: payload,
+timestamp: now()
+}); // cache crypto only
+} else {
+// Stock branch — no cache
+const apiKey = process.env.FINNHUB_API_KEY || "";
+if (!apiKey) {
+reply.code(400);
+return { status: "error", message: "Stock pricing unavailable (API key missing)" };
+}
 
-  // Fetch real-time stock price
-  payload = await getStock(baseNorm.toUpperCase(), apiKey);
-  }
+// Fetch real-time stock price dynamically
+payload = await getStock(baseNorm.toUpperCase(), apiKey);
+// no cache for stocks
+}
 
     const response = {
       status: "ok",
@@ -299,20 +313,36 @@ const apiKey = process.env.FINNHUB_API_KEY || "";
 let payload;
 
 if (fxCache.has(baseNorm.toUpperCase()) || STABLECOINS[baseNorm.toUpperCase()]) {
-  payload = await getFX(baseNorm.toUpperCase(), quoteNorm.toUpperCase());
-  } else if (cryptoCache[baseNorm.toLowerCase()]) {
-  const cryptoId = await getCryptoIdFromSymbol(baseNorm);
-  payload = await getCrypto(cryptoId!, quoteNorm.toLowerCase());
-  } else {
-  const apiKey = process.env.FINNHUB_API_KEY || "";
-  if (!apiKey) {
-  reply.code(400);
-  return { status: "error", message: "Stock pricing unavailable (API key missing)" };
-  }
+payload = await getFX(baseNorm.toUpperCase(), quoteNorm.toUpperCase());
+priceCache.set(key, {
+status: "ok",
+base: baseNorm.toUpperCase(),
+quote: quoteNorm.toUpperCase(),
+data: payload,
+timestamp: now()
+}); // cache FX only
+} else if (cryptoCache[baseNorm.toLowerCase()]) {
+const cryptoId = await getCryptoIdFromSymbol(baseNorm);
+payload = await getCrypto(cryptoId!, quoteNorm.toLowerCase());
+priceCache.set(key, {
+status: "ok",
+base: baseNorm.toUpperCase(),
+quote: quoteNorm.toUpperCase(),
+data: payload,
+timestamp: now()
+}); // cache crypto only
+} else {
+// Stock branch — no cache
+const apiKey = process.env.FINNHUB_API_KEY || "";
+if (!apiKey) {
+reply.code(400);
+return { status: "error", message: "Stock pricing unavailable (API key missing)" };
+}
 
-  // Dynamically fetch stock price from Finnhub
-  payload = await getStock(baseNorm.toUpperCase(), apiKey);
-  }
+// Fetch real-time stock price dynamically
+payload = await getStock(baseNorm.toUpperCase(), apiKey);
+// no cache for stocks
+}
 
 const response = {
 status: "ok",
