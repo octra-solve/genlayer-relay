@@ -15,9 +15,8 @@ export interface VerifyResponse {
 }
 
 export interface PriceData {
-  [base: string]: {
-    [quote: string]: number | null;
-  };
+  price: number | null;
+  change?: Record<string, number>;
 }
 
 export interface PriceResponse {
@@ -72,7 +71,7 @@ export const api = {
   getPriceOptions: async (): Promise<PriceOptions> =>
     handleRequest(
       async () => {
-        console.log("➡️ GET /prices/options");
+        console.log("GET /prices/options");
         const res = await axios.get(`${BASE_URL}/prices/options`, { timeout: 7000 });
         return res.data;
       },
@@ -83,7 +82,7 @@ export const api = {
   getPrice: async (base: string, quote: string): Promise<PriceResponse> =>
     handleRequest(
       async () => {
-        console.log(`➡️ GET /prices?base=${base}&quote=${quote}`);
+        console.log(` GET /prices?base=${base}&quote=${quote}`);
         const res = await axios.get(`${BASE_URL}/prices`, {
           params: { base, quote },
           timeout: 7000,
@@ -103,7 +102,7 @@ export const api = {
   getWeather: async (city: string): Promise<WeatherResponse> =>
     handleRequest(
       async () => {
-        console.log(`➡️ GET /weather?city=${city}`);
+        console.log(` GET /weather?city=${city}`);
         const res = await axios.get(`${BASE_URL}/weather`, {
           params: { city },
           timeout: 7000,
@@ -117,7 +116,7 @@ export const api = {
   getRandom: async (): Promise<RandomResponse> =>
     handleRequest(
       async () => {
-        console.log("➡️ GET /random");
+        console.log(" GET /random");
         const res = await axios.get(`${BASE_URL}/random`, { timeout: 7000 });
         return res.data;
       },
@@ -128,7 +127,7 @@ export const api = {
   signMessage: async (message: string, secret: string): Promise<SignResponse> =>
     handleRequest(
       async () => {
-        console.log("➡️ POST /sign");
+        console.log(" POST /sign");
         const res = await axios.post(
           `${BASE_URL}/sign`,
           { message, secret },
@@ -143,7 +142,7 @@ export const api = {
   verifySignature: async (message: string, signature: string, secret: string): Promise<VerifyResponse> =>
     handleRequest(
       async () => {
-        console.log("➡️ POST /verify");
+        console.log(" POST /verify");
         const res = await axios.post(
           `${BASE_URL}/verify`,
           { message, signature, secret },

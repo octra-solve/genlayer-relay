@@ -64,33 +64,22 @@ function App() {
       if (res?.status === "ok") {
         let displayPrice: number | null = null;
 
-        if (crypto && !stocks) {
-          displayPrice =
-          res.data?.[crypto.toLowerCase()]?.[quote.toLowerCase()] ?? null;
-          }
+        if (crypto) {
+          displayPrice = res.data?.price ?? null;
+          } else if (stocks) {
+            displayPrice = res.data?.price ?? null;
+            } else if (fx) {
+              displayPrice = res.data?.price ?? null;
+              }
 
-          // STOCKS
-          else if (stocks) {
-          const stockData = res.data?.[stocks];
-          displayPrice =
-          stockData?.price ??
-          stockData?.last ??
-          stockData?.close ??
-          null;
-          }
-
-          // FX
-          else if (fx) {
-          displayPrice =
-          res.data?.[fx.toLowerCase()]?.[quote.toLowerCase()] ?? null;
-          }
-
-          if (displayPrice === null) {
-          setPrice("Price not available ❌");
-          } else {
-          setPrice(`${base.toUpperCase()}/${quote.toUpperCase()}: ${displayPrice} 💸`);
+        if (displayPrice === null) {
+        setPrice("Price not available ❌");
+        } else {
+        setPrice(`${base.toUpperCase()}/${quote.toUpperCase()}: ${displayPrice} 💸`);
         }
-      } else {
+        }
+       
+          else {
         setPrice("Price not available ❌");
       }
     } catch (err) {
