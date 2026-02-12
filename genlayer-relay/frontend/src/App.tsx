@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { premiumApi } from "./premium/premiumApi";
 import SearchableDropdown from "./components/SearchableDropdown";
 import "./App.css";
+import { cryptoSymbolMap } from "./lib/cryptoMap";
 
 function App() {
   const [price, setPrice] = useState<string>(""); 
@@ -60,11 +61,11 @@ const fetchPrice = async () => {
   setLoadingPrices(false)
   return
   }
-
+ const normalizedBase = cryptoSymbolMap[base.toUpperCase()] || base.toUpperCase()
   // -------------------------
   // Fetch price from API
   // -------------------------
-  const res = await api.getPrice(base.toUpperCase(), quote.toUpperCase())
+ const res = await api.getPrice(normalizedBase, quote.toUpperCase())
 
   setLastPriceResponse(res.data) 
 
