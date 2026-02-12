@@ -219,6 +219,7 @@ const fetchPrice = async () => {
            <button 
            onClick={() => { setPrice(""); setLastPriceResponse(null); }}
            style={{ marginLeft: "0.5rem" }}
+           className="clear-btn"
            >
            Clear
            </button>
@@ -280,6 +281,7 @@ const fetchPrice = async () => {
   <button 
   onClick={() => { setWeather(""); setLastWeatherResponse(null); }}
   style={{ marginLeft: "0.5rem" }}
+  className="clear-btn"
   >
   Clear
   </button>
@@ -328,6 +330,7 @@ const fetchPrice = async () => {
           <button 
           onClick={() => setRandom("")} 
           style={{ marginLeft: "0.5rem" }}
+          className="clear-btn"
           >
           Clear
           </button>
@@ -346,6 +349,7 @@ const fetchPrice = async () => {
           <button 
           onClick={() => { setMessage(""); setSecret(""); setSignature(""); setVerifyResult(""); }}
           style={{ marginLeft: "0.5rem" }}
+          className="clear-btn"
           >
           Clear
           </button>
