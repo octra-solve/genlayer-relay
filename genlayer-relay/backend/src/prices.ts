@@ -4,6 +4,16 @@ import { getCrypto, getCryptoList } from "./prices_modules/crypto";
 import { normalizeStablecoin, getStablecoin } from "./prices_modules/stables";
 import { getStock } from "./prices_modules/stocks";
 
+// ----------------- OPTIONS CACHE -----------------
+let cachedOptions: {
+  crypto: string[];
+    fx: string[];
+      stocks: string[];
+        timestamp: number;
+        } | null = null;
+
+        const OPTIONS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 const now = () => Math.floor(Date.now() / 1000);
 const nowMs = () => Date.now();
 
@@ -199,39 +209,50 @@ export const pricesRoutes: FastifyPluginAsync = async (fastify) => {
       };
     }
   });
-  /* =========
-  GET /api/prices/options
-  Fully dynamic dropdown options
-     ========= */
-     fastify.get("/options", async () => {
-     // ---------- CRYPTO ----------
-     const cryptoMap = await getCryptoList(); // already dynamic from your backend module
-     const cryptoOptions = Object.keys(cryptoMap).map(k => k.toUpperCase());
+  // ....... dynamic fetch for UI drop down.....
+fastify.get("/options", async () => {
+  const nowTime = Date.now();
 
-       // ---------- FX ----------
-       const fxOptions = Array.from(FX_CURRENCIES); // use your FX_CURRENCIES set
+  if (cachedOptions && nowTime - cachedOptions.timestamp < OPTIONS_CACHE_TTL) {
+  return { status: "ok", ...cachedOptions };
+    }
 
-       // ---------- STOCKS (dynamic) ----------
-       let stocksOptions: string[] = [];
-       const apiKey = process.env.FINNHUB_API_KEY;
-       if (apiKey) {
-       try {
-       const res = await fetch(`https://finnhub.io/api/v1/stock/symbol?exchange=US&token=${apiKey}`);
-       const data = await res.json();
-       stocksOptions = data.map((s: any) => s.symbol.toUpperCase());
-       } catch (err) {
-       console.error("Failed to fetch stocks options dynamically:", err);
-       stocksOptions = ["AAPL","TSLA","MSFT","GOOGL","AMZN"]; // fallback
-       }
-       }
+    // ---------- CRYPTO ----------
+    const cryptoMap = await getCryptoList();
+    const cryptoOptions = Object.keys(cryptoMap).map(k => k.toUpperCase());
 
-       return {
-       status: "ok",
-       crypto: cryptoOptions,
-       fx: fxOptions,
-       stocks: stocksOptions,
-       };
-       });
+    // ---------- FX ----------
+    const fxOptions = Array.from(FX_CURRENCIES);
+
+    // ---------- STOCKS (dynamic) ----------
+    let stocksOptions: string[] = [];
+    const apiKey = process.env.FINNHUB_API_KEY;
+    if (apiKey) {
+    try {
+    const res = await fetch(`https://finnhub.io/api/v1/stock/symbol?exchange=US&token=${apiKey}`);
+    const data = await res.json();
+    stocksOptions = data.map((s: any) => s.symbol.toUpperCase());
+    } catch (err) {
+    console.error("Failed to fetch stocks options dynamically:", err);
+    stocksOptions = ["AAPL","TSLA","MSFT","GOOGL","AMZN"]; // fallback
+    }
+    }
+
+    //-------------- CACHE my RESULTS -----------------
+    cachedOptions = {
+    crypto: cryptoOptions,
+    fx: fxOptions,
+    stocks: stocksOptions,
+    timestamp: nowTime,
+    };
+
+    return {
+    status: "ok",
+    crypto: cryptoOptions,
+    fx: fxOptions,
+    stocks: stocksOptions,
+    };
+    });
   /* =========================================================
      GET /api/prices/:base/:quote
      ========================================================= */
