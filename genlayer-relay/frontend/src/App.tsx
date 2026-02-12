@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { SignResponse, VerifyResponse, PriceOptions } from "../lib/api";
+import type { SignResponse, PriceData, VerifyResponse, PriceOptions } from "../lib/api";
 import { api } from "../lib/api";
 import { premiumApi } from "./premium/premiumApi";
 import SearchableDropdown from "./components/SearchableDropdown";
@@ -27,6 +27,8 @@ function App() {
   const [loadingPremium, setLoadingPremium] = useState(false);
   const [city, setCity] = useState("London");
 
+  const [lastPriceResponse, setLastPriceResponse] = useState<PriceData | null>(null)
+
   useEffect(() => { fetchPriceOptions(); }, []);
 
   const fetchPriceOptions = async () => {
@@ -37,58 +39,52 @@ function App() {
   /* -------------------------------------------------
    *  PRICE FETCHING LOGIC
    * ------------------------------------------------- */
-  const fetchPrice = async () => {
-    setLoadingPrices(true);
-    setPrice("");
+const fetchPrice = async () => {
+  setLoadingPrices(true)
+  setPrice("")
+  setLastPriceResponse(null)
 
-    try {
-      let base = crypto || stocks || fx;
-      let quote = fx || "USD";
+  try {
+  // -------------------------
+  // Determine base & quote
+  // -------------------------
+  let base = crypto || stocks || fx
+  let quote = "USD"
 
-      if (stocks) {
-        quote = fx || "USD";
-      } else if (crypto) {
-        quote = fx || "USD";
-      } else if (fx) {
-        quote = fx;
-      }
+  if (stocks) quote = fx || "USD"
+  else if (crypto) quote = fx || "USD"
+  else if (fx) quote = fx
 
-      if (!base || !quote) {
-        setPrice("Please select a valid asset and quote");
-        setLoadingPrices(false);
-        return;
-      }
+  if (!base || !quote) {
+  setPrice("Please select a valid asset and quote")
+  setLoadingPrices(false)
+  return
+  }
 
-      const res = await api.getPrice(base.toLowerCase(), quote.toLowerCase());
+  // -------------------------
+  // Fetch price from API
+  // -------------------------
+  const res = await api.getPrice(base.toUpperCase(), quote.toUpperCase())
 
-      if (res?.status === "ok") {
-        let displayPrice: number | null = null;
+  setLastPriceResponse(res.data) 
 
-        if (crypto) {
-          displayPrice = res.data?.price ?? null;
-          } else if (stocks) {
-            displayPrice = res.data?.price ?? null;
-            } else if (fx) {
-              displayPrice = res.data?.price ?? null;
-              }
+  // -------------------------
+  // Display logic
+  // -------------------------
+  const displayPrice = res.data?.price ?? null
 
-        if (displayPrice === null) {
-        setPrice("Price not available ❌");
-        } else {
-        setPrice(`${base.toUpperCase()}/${quote.toUpperCase()}: ${displayPrice} 💸`);
-        }
-        }
-       
-          else {
-        setPrice("Price not available ❌");
-      }
-    } catch (err) {
-      console.error(err);
-      setPrice("Failed to fetch price ⚠️");
-    }
+  if (displayPrice === null) {
+  setPrice("Price not available ❌")
+  } else {
+  setPrice(`${base.toUpperCase()}/${quote.toUpperCase()}: ${displayPrice} 💸`)
+  }
+  } catch (err) {
+  console.error(" FETCH ERROR:", err)
+  setPrice("Failed to fetch price ⚠️")
+  }
 
-    setLoadingPrices(false);
-  };
+  setLoadingPrices(false)
+  }
 
   /* -------------------------------------------------
    * WEATHER
@@ -128,7 +124,7 @@ function App() {
   const handleVerify = async () => {
     setLoadingVerify(true);
     const res: VerifyResponse = await api.verifySignature(message, signature, secret);
-    setVerifyResult(res?.valid ? "✅ Signature valid" : "❌ Signature invalid");
+    setVerifyResult(res?.valid ? " Signature valid" : "Signature invalid");
     setLoadingVerify(false);
   };
 
@@ -141,7 +137,7 @@ function App() {
       const data = await premiumApi.getPremiumData(); 
       setPremiumData(JSON.stringify(data, null, 2)); 
     } catch { 
-      setPremiumData("Failed to fetch premium data"); 
+      setPremiumData("C'mon buddy..Stay tuned. how fast do you want it 😯"); 
     }
     setLoadingPremium(false);
   };
@@ -187,7 +183,11 @@ function App() {
             </button>
             {price && <button onClick={copyPrice} className="copy-btn">📋 Copy</button>}
           </div>
-          <div className="result-display price-result">{price}</div>
+          <div className="result-display price-result">{price}
+          {lastPriceResponse && (
+          <pre>{JSON.stringify(lastPriceResponse, null, 2)}</pre>
+            )}
+          </div>
         </section>
 
         {/* Weather */}
