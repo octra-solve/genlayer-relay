@@ -77,7 +77,7 @@ const fetchPrice = async () => {
   if (displayPrice === null) {
   setPrice("Price not available ❌")
   } else {
-  setPrice(`${base.toUpperCase()}/${quote.toUpperCase()}: ${displayPrice} 💸`)
+  setPrice(`${base.toUpperCase()}/${quote.toUpperCase()}: ${displayPrice} - - -`)
   }
   } catch (err) {
   console.error(" FETCH ERROR:", err)
@@ -184,12 +184,50 @@ const fetchPrice = async () => {
             </button>
             {price && <button onClick={copyPrice} className="copy-btn">📋 Copy</button>}
           </div>
-          <div className="result-display price-result">{price}
-          {lastPriceResponse && (
-          <pre>{JSON.stringify(lastPriceResponse, null, 2)}</pre>
-            )}
-          </div>
-        </section>
+     <div className="result-display price-result">
+     {price}
+
+     {lastPriceResponse && (
+     <div
+     className="price-details"
+     style={{
+     textAlign: "left",
+     margin: 0,
+     padding: 0
+     }}
+     >
+     {Object.entries(lastPriceResponse).map(([key, value]) => {
+
+     if (typeof value === "object" && value !== null) {
+     return (
+     <div key={key} style={{ margin: 0, padding: 0 }}>
+     <div style={{ fontWeight: "bold" }}>{key}:</div>
+
+     {Object.entries(value).map(([subKey, subValue]) => (
+     <div key={subKey} style={{ margin: 0, padding: 0 }}>
+     {subKey}:{" "}
+     {typeof subValue === "number"
+     ? subValue.toLocaleString()
+     : String(subValue)}
+     </div>
+     ))}
+     </div>
+     )
+     }
+
+     return (
+     <div key={key} style={{ margin: 0, padding: 0 }}>
+     <strong>{key}:</strong>{" "}
+     {typeof value === "number"
+     ? value.toLocaleString()
+     : String(value)}
+     </div>
+     )
+     })}
+     </div>
+     )}
+     </div>
+     </section>
 
         {/* Weather */}
         <section>
