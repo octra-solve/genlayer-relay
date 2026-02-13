@@ -18,9 +18,15 @@ const now = () => Math.floor(Date.now() / 1000);
 const nowMs = () => Date.now();
 
 const FX_CURRENCIES = new Set([
-  "USD","EUR","GBP","JPY","AUD",
-  "CAD","CHF","CNY","NZD","SEK"
-]);
+  "USD", "EUR", "GBP", "JPY", "AUD",
+  "CAD", "CHF", "CNY", "NZD", "SEK",
+  "HKD", "SGD", "INR", "BRL", "MXN", "RUB",
+  "ZAR", "KRW", "TRY", "SAR", "AED",
+  "THB", "MYR", "PHP", "IDR", "PLN",
+  "DKK", "NOK", "HUF", "CZK", "ILS",
+  "CLP", "COP", "PEN", "EGP", "NGN",
+  "VND", "PKR", "BDT", "LKR", "KWD"
+  ]);
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null;

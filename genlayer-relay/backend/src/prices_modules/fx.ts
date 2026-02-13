@@ -22,7 +22,8 @@ interface ExchangeRateResponse {
   rates: Record<string, number>;
 }
 
-const FX_URL = "https://api.exchangerate.host/latest";
+const FX_URL = "https://api.frankfurter.app/latest";
+const FX_API_KEY = process.env.FX_API_KEY;
 
 const now = () => Math.floor(Date.now() / 1000);
 
@@ -60,8 +61,12 @@ async function fetchRate(
 ): Promise<ExchangeRateResponse> {
   try {
     const res = await axios.get<ExchangeRateResponse>(FX_URL, {
-      params: { base, symbols },
-      timeout: 10000
+    params: { 
+    base, 
+    symbols,
+    access_key: FX_API_KEY 
+            },
+    timeout: 10000
     });
     console.log(`[FX DEBUG] base=${base} symbols=${symbols} res.data=`, res.data);
     

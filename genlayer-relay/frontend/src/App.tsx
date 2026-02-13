@@ -20,6 +20,7 @@ function App() {
   const [crypto, setCrypto] = useState(""); 
   const [fx, setFx] = useState(""); 
   const [stocks, setStocks] = useState(""); 
+  const [quoteFX, setQuoteFX] = useState("USD");
 
   const [loadingPrices, setLoadingPrices] = useState(false);
   const [loadingWeather, setLoadingWeather] = useState(false);
@@ -67,12 +68,12 @@ const fetchPrice = async () => {
   // -------------------------
   // Determine base & quote
   // -------------------------
-  let base = crypto || stocks || fx
-  let quote = "USD"
+  let base = crypto || stocks || fx;
+  let quote = quoteFX || "USD";  
 
-  if (stocks) quote = fx || "USD"
-  else if (crypto) quote = fx || "USD"
-  else if (fx) quote = fx
+  if (base.toUpperCase() === quote.toUpperCase()) {
+    quote = "USD"; 
+    }
 
   if (!base || !quote) {
   setPrice("Please select a valid asset and quote")
@@ -206,6 +207,12 @@ const fetchPrice = async () => {
               onChange={setFx} 
               placeholder="Stable / FX" 
               disabled={!!stocks}
+            />
+            <SearchableDropdown
+            options={priceOptions?.fx || []}
+            value={quoteFX}
+            onChange={setQuoteFX}
+            placeholder="Quote Currency"
             />
             <SearchableDropdown 
               options={priceOptions?.stocks || []} 
