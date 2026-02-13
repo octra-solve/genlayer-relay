@@ -4,8 +4,8 @@ export interface FXPrice {
   base: string;
   quote: string;
   price: number;
-  provider: "exchangerate.host";
-  timestamp: number;
+  provider: "frankfurter";
+  timestamp: string;
   change: {
     "5m": null;
     "30m": null;
@@ -20,10 +20,9 @@ interface FrankfurterResponse {
   base: string;
   date: string;
   rates: Record<string, number>;
-  }
+}
 
 const FX_URL = "https://api.frankfurter.app/latest";
-const FX_API_KEY = process.env.FX_API_KEY;
 
 const now = () => Math.floor(Date.now() / 1000);
 
@@ -32,96 +31,74 @@ const isValidNumber = (n: unknown): n is number =>
 
 function assertValidResponse(
   data: unknown
-  ): asserts data is { base: string; rates: Record<string, number> } {
-  if (
-  !data ||
-  typeof data !== "object"
-  ) {
-  throw new Error("Invalid FX response: not an object");
+): asserts data is { base: string; rates: Record<string, number> } {
+  if (!data || typeof data !== "object") {
+    throw new Error("Invalid FX response: not an object");
   }
 
   const d = data as Record<string, unknown>;
 
   if (typeof d.base !== "string") {
-  throw new Error("Invalid FX response: missing base");
+    throw new Error("Invalid FX response: missing base");
   }
 
-  if (
-  !d.rates ||
-  typeof d.rates !== "object"
-  ) {
-  throw new Error("Invalid FX response: missing rates");
+  if (!d.rates || typeof d.rates !== "object") {
+    throw new Error("Invalid FX response: missing rates");
   }
 
   for (const value of Object.values(d.rates)) {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-  throw new Error("Invalid FX response: invalid rate value");
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      throw new Error("Invalid FX response: invalid rate value");
+    }
   }
-  }
-  }
+}
 
 /**
  * Structural runtime guard for Axios-like errors.
- * We do NOT depend on Axios types.
  */
 function isAxiosLikeError(
   err: unknown
 ): err is { response?: { status?: number } } {
-  return (
-    typeof err === "object" &&
-    err !== null &&
-    "response" in err
-  );
+  return typeof err === "object" && err !== null && "response" in err;
 }
 
 async function fetchRate(
   base: string,
   symbols: string
-  ): Promise<ExchangeRateResponse> {
+): Promise<{ base: string; rates: Record<string, number> }> {
   try {
-  const url = `${FX_URL}?from=${base}&to=${symbols}`;
+    const url = `${FX_URL}?from=${base}&to=${symbols}`;
 
-  const res = await axios.get<FrankfurterResponse>(url, {
-  timeout: 10000
-  });
+    const res = await axios.get<FrankfurterResponse>(url, { timeout: 10000 });
 
-  console.log(
-  `[FX DEBUG] base=${base} symbols=${symbols} res.data=`,
-  res.data
-  );
+    console.log(`[FX DEBUG] base=${base} symbols=${symbols} res.data=`, res.data);
 
-  if (!res.data || !res.data.rates) {
-  throw new Error("Invalid FX provider response");
-  }
+    if (!res.data || !res.data.rates) {
+      throw new Error("Invalid FX provider response");
+    }
 
-  return {
-  base: res.data.base,
-  rates: res.data.rates
-  };
+    assertValidResponse(res.data);
 
+    return {
+      base: res.data.base,
+      rates: res.data.rates
+    };
   } catch (err: unknown) {
+    if (isAxiosLikeError(err)) {
+      const status = err.response?.status;
 
-  if (isAxiosLikeError(err)) {
-  const status = err.response?.status;
+      if (status === 429) {
+        throw new Error("FX provider rate limit exceeded");
+      }
 
-  if (status === 429) {
-  throw new Error("FX provider rate limit exceeded");
+      throw new Error(`FX provider HTTP error: ${status ?? "network failure"}`);
+    }
+
+    throw new Error("Unknown error while fetching FX rate");
   }
+}
 
-  throw new Error(
-  `FX provider HTTP error: ${status ?? "network failure"}`
-  );
-  }
-
-  throw new Error("Unknown error while fetching FX rate");
-  }
-  }
-
-export async function getFX(
-  base: string,
-  quote: string
-): Promise<FXPrice> {
-
+export async function getFX(base: string, quote: string): Promise<FXPrice> {
   const baseUpper = base.toUpperCase();
   const quoteUpper = quote.toUpperCase();
 
@@ -129,13 +106,13 @@ export async function getFX(
     throw new Error("Invalid currency pair");
   }
 
-  // Same currency
+  // Same currency shortcut
   if (baseUpper === quoteUpper) {
     return {
       base: baseUpper,
       quote: quoteUpper,
       price: 1,
-      provider: "exchangerate.host",
+      provider: "frankfurter",
       timestamp: now(),
       change: {
         "5m": null,
@@ -149,35 +126,18 @@ export async function getFX(
 
   // Direct fetch
   const direct = await fetchRate(baseUpper, quoteUpper);
-  let rate = direct.rates?.[quoteUpper];
-
-  // Pivot via USD if needed
-  if (!isValidNumber(rate)) {
-    const pivot = await fetchRate(
-      "USD",
-      `${baseUpper},${quoteUpper}`
-    );
-
-    const baseRate = pivot.rates?.[baseUpper];
-    const quoteRate = pivot.rates?.[quoteUpper];
-
-    if (isValidNumber(baseRate) && isValidNumber(quoteRate)) {
-      rate = quoteRate / baseRate;
-    }
-  }
+  const rate = direct.rates[quoteUpper];
 
   if (!isValidNumber(rate)) {
-    throw new Error(
-      `FX rate unavailable for pair ${baseUpper}/${quoteUpper}`
-    );
+    throw new Error(`FX rate unavailable for pair ${baseUpper}/${quoteUpper}`);
   }
 
   return {
     base: baseUpper,
     quote: quoteUpper,
     price: +rate.toFixed(8),
-    provider: "exchangerate.host",
-    timestamp: now(),
+    provider: "frankfurter",
+    timestamp: new Date(now() * 1000).toISOString(),
     change: {
       "5m": null,
       "30m": null,
