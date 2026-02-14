@@ -113,7 +113,7 @@ export async function getFX(base: string, quote: string): Promise<FXPrice> {
       quote: quoteUpper,
       price: 1,
       provider: "frankfurter",
-      timestamp: now(),
+      timestamp: new Date(now() * 1000).toISOString(), 
       change: {
         "5m": null,
         "30m": null,
